@@ -1,0 +1,6 @@
+services:
+  sharepoint_connector.webform_module_check:
+    class: Drupal\sharepoint_connector\Access\WebformModuleCheck
+    arguments: ['@module_handler']
+    tags:
+      - { name: access_check, applies_to: _custom_access }

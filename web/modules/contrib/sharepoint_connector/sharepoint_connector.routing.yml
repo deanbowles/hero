@@ -1,0 +1,63 @@
+sharepoint_connector.post_entry:
+    path: /sharepoint-post-entry
+    defaults:
+        _controller: Drupal\sharepoint_connector\Controller\SharepointController::postEntry
+    requirements:
+        _permission: 'access content'
+
+sharepoint_connector.settings:
+  path: '/admin/config/sharepoint_connector/settings'
+  defaults:
+    _title: 'Sharepoint Connector Settings'
+    _controller: Drupal\sharepoint_connector\Controller\SharepointControllerTabs::page1
+  requirements:
+    _permission: 'administer site configuration'
+
+sharepoint_connector.content_types:
+  path: '/admin/config/sharepoint_connector/settings/content-types'
+  defaults:
+    _title: 'Content Types'
+    _controller: Drupal\sharepoint_connector\Controller\SharepointControllerTabs::page2
+  requirements:
+    _permission: 'administer site configuration'
+
+sharepoint_connector.manage_edit:
+  path: '/admin/config/sharepoint_connector/settings/content-types/configure'
+  defaults:
+    _title: 'Configure Content Type'
+    _form: Drupal\sharepoint_connector\Form\SharepointConnectorFormFields
+  requirements:
+    _permission: 'administer site configuration'
+
+sharepoint_connector.manage_delete:
+  path: '/admin/config/sharepoint_connector/settings/content-types/delete'
+  defaults:
+    _title: 'Delete Content Type'
+    _form: Drupal\sharepoint_connector\Form\SharepointConnectorFormFields
+  requirements:
+    _permission: 'administer site configuration'
+
+sharepoint_connector.webforms:
+  path: '/admin/config/sharepoint_connector/settings/webforms'
+  defaults:
+    _title: 'Webforms'
+    _controller: Drupal\sharepoint_connector\Controller\SharepointControllerTabs::page3
+  requirements:
+    _permission: 'administer site configuration'
+    _custom_access: 'sharepoint_connector.webform_module_check:access'
+
+sharepoint_connector.manage_webforms_edit:
+  path: '/admin/config/sharepoint_connector/settings/webforms/configure'
+  defaults:
+    _title: 'Configure Webform'
+    _form: Drupal\sharepoint_connector\Form\SharepointConnectorFormWebformFields
+  requirements:
+    _permission: 'administer site configuration'
+
+sharepoint_connector.manage_webforms_delete:
+  path: '/admin/config/sharepoint_connector/settings/webforms/delete'
+  defaults:
+    _title: 'Delete Webform'
+    _form: Drupal\sharepoint_connector\Form\SharepointConnectorFormWebformFields
+  requirements:
+    _permission: 'administer site configuration'

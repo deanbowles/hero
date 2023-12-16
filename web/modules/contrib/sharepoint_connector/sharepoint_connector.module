@@ -1,0 +1,225 @@
+<?php
+
+/**
+ * @file
+ * Sharepoint Connector module.
+ */
+
+use Drupal\node\NodeInterface;
+use Drupal\sharepoint_connector\Form\SharepointConnectorForm;
+use Drupal\sharepoint_connector\Form\SharepointConnectorFormFields;
+use Drupal\sharepoint_connector\Form\SharepointConnectorFormWebformFields;
+use Drupal\sharepoint_connector\SharepointConnector;
+use Drupal\webform\WebformSubmissionInterface;
+use Symfony\Component\HttpFoundation\JsonResponse;
+
+/**
+ * Implements hook_node_insert().
+ */
+function sharepoint_connector_node_insert(NodeInterface $node) {
+
+  if (!_sharepoint_connector_get_disabled_api()) {
+    _sharepoint_connector_process_node_fields($node);
+  }
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function sharepoint_connector_node_update(NodeInterface $node) {
+
+  if (!_sharepoint_connector_get_disabled_api()) {
+    _sharepoint_connector_process_node_fields($node);
+  }
+}
+
+/**
+ * Implements hook_webform_submission_insert().
+ */
+function sharepoint_connector_webform_submission_insert(WebformSubmissionInterface $webform_submission) {
+
+  $sharepoint_config = \Drupal::config('sharepoint_connector.settings');
+
+  if (!_sharepoint_connector_get_disabled_api()) {
+    $send_array = [];
+
+    $webform = $webform_submission->getWebform();
+    $webform_id = $webform->id();
+
+    $webform_host = $sharepoint_config->get(SharepointConnectorFormWebformFields::FORM_ID . '_webform_' . $webform_id . '_host', '');
+    $webform_host = is_array($webform_host) && isset($webform_host['url']) ? $webform_host['url'] : '';
+
+    $enabled_fields = $sharepoint_config->get(SharepointConnectorFormWebformFields::FORM_ID . '_webform_' . $webform_id . '_enabled_fields', '');
+    $enabled_fields = is_array($enabled_fields) && isset($enabled_fields['fields']) ? array_filter($enabled_fields['fields']) : '';
+
+    $webform_fields = $webform->getElementsDecoded();
+    $data = $webform_submission->getData();
+
+    foreach ($webform_fields as $field_name => $field_value) {
+      if (!empty($field_value) && (isset($field_value['#title']) && !empty($field_value['#title'])) && (isset($field_value['#type']) && $field_value['#type'] != 'processed_text')) {
+        if (!in_array($webform_id . ':' . $field_name, array_filter($enabled_fields))) {
+          continue;
+        }
+        $send_array[SharepointConnectorFormWebformFields::FORM_ID . '_webform_' . $webform_id . '_enabled_fields'][$webform_id . ':' . $field_name . '_mapping'] = ($data[$field_name] ?: '');
+      }
+    }
+
+    if (!empty($send_array)) {
+      $is_logging = $sharepoint_config->get('connection_fieldset', '');
+      $is_logging = (isset($is_logging[SharepointConnectorForm::FORM_ID . '_log_requests']) && !empty($is_logging[SharepointConnectorForm::FORM_ID . '_log_requests'])) ? $is_logging[SharepointConnectorForm::FORM_ID . '_log_requests'] : '';
+
+      try {
+        $sharepoint = new SharepointConnector();
+        $entry = $sharepoint->postAnEntry($send_array, 1, $webform_host);
+      }
+      catch (\Exception $e) {
+        if ($is_logging) {
+          \Drupal::logger('sharepoint_connector')->error("ERROR from" . __FILE__ . ":" . __LINE__ . " " . $e->getMessage());
+        }
+      }
+      if ($entry) {
+        // Message success.
+        if ($is_logging) {
+          \Drupal::logger('sharepoint_connector')->info("SUCCESS! Created new entry in sharepoint with the following info: <pre>" . print_r($send_array, TRUE) . "</pre>");
+        }
+        $response = new JsonResponse();
+        return $response->setStatusCode(JsonResponse::HTTP_CREATED);
+      }
+      else {
+        $response = new JsonResponse();
+        if ($is_logging) {
+          \Drupal::logger('sharepoint_connector')->warning(": <pre>" . print_r($send_array, TRUE) . "</pre>");
+        }
+        return $response->setStatusCode(JsonResponse::HTTP_NOT_FOUND);
+      }
+    }
+  }
+}
+
+/**
+ * Helper function to process node fields.
+ */
+function _sharepoint_connector_process_node_fields(NodeInterface $node) {
+
+  $sharepoint_config = \Drupal::config('sharepoint_connector.settings');
+  $send_array = [];
+
+  $node_type = $node->getType();
+  $content_type_host = $sharepoint_config->get(SharepointConnectorFormFields::FORM_ID . '_content_type_' . $node_type . '_host', '');
+  $content_type_host = is_array($content_type_host) && isset($content_type_host['url']) ? $content_type_host['url'] : '';
+
+  $content_type_fields = $sharepoint_config->get(SharepointConnectorFormFields::FORM_ID . '_content_type_' . $node_type . '_enabled_fields', '');
+  $content_type_fields = is_array($content_type_fields) && isset($content_type_fields['fields']) ? array_filter($content_type_fields['fields']) : '';
+
+  if (!empty($content_type_fields)) {
+    $fields = $node->getFields();
+    foreach ($fields as $field_name => $field) {
+      if (!in_array($node_type . ':' . $field_name, $content_type_fields)) {
+        continue;
+      }
+      $send_array[SharepointConnectorFormFields::FORM_ID . '_content_type_' . $node_type . '_enabled_fields'][$node_type . ':' . $field_name . '_mapping'] = _sharepoint_connector_get_field_value($field);
+    }
+  }
+
+  if (!empty($send_array)) {
+    $is_logging = $sharepoint_config->get('connection_fieldset', '');
+    $is_logging = (isset($is_logging[SharepointConnectorForm::FORM_ID . '_log_requests']) && !empty($is_logging[SharepointConnectorForm::FORM_ID . '_log_requests'])) ? $is_logging[SharepointConnectorForm::FORM_ID . '_log_requests'] : '';
+
+    try {
+      $sharepoint = new SharepointConnector();
+      $entry = $sharepoint->postAnEntry($send_array, 1, $content_type_host);
+    }
+    catch (\Exception $e) {
+      if ($is_logging) {
+        \Drupal::logger('sharepoint_connector')->error("ERROR from" . __FILE__ . ":" . __LINE__ . " " . $e->getMessage());
+      }
+    }
+    if ($entry) {
+      // Message success.
+      if ($is_logging) {
+        \Drupal::logger('sharepoint_connector')->info("SUCCESS! Created new entry in sharepoint with the following info: <pre>" . print_r($send_array, TRUE) . "</pre>");
+      }
+      $response = new JsonResponse();
+      return $response->setStatusCode(JsonResponse::HTTP_CREATED);
+    }
+    else {
+      $response = new JsonResponse();
+      if ($is_logging) {
+        \Drupal::logger('sharepoint_connector')->warning(": <pre>" . print_r($send_array, TRUE) . "</pre>");
+      }
+      return $response->setStatusCode(JsonResponse::HTTP_NOT_FOUND);
+    }
+  }
+}
+
+/**
+ * Helper function to get field values by field type.
+ */
+function _sharepoint_connector_get_field_value($field) {
+  $field_type = $field->getFieldDefinition()->getType();
+  switch ($field_type) {
+    case 'list_string':
+    case 'string':
+    case 'text':
+    case 'text_long':
+    case 'text_with_summary':
+      // Text fields (includes plain, formatted, long, etc.)
+      return $field->value;
+
+    case 'entity_reference':
+      // Entity reference fields (e.g., taxonomy term reference)
+      // $target_ids = $field->getValue();
+      // This gives you an array of entity IDs.
+      // You might want to load the entities too:
+      $entities = $field->referencedEntities();
+      if (!empty($entities)) {
+        $values = [];
+        foreach ($entities as $entity) {
+          $values[] = $entity->label();
+        }
+        $values = implode(', ', $values);
+        return $values;
+      }
+      break;
+
+    case 'image':
+    case 'file':
+      // Image and file fields.
+      // $target_ids = $field->getValue();
+      // This gives you an array of file entity IDs.
+      $files = $field->referencedEntities();
+      if (!empty($files)) {
+        $uri = $files[0]->getFileUri();
+        $url = \Drupal::service('file_url_generator')->generateAbsoluteString($uri);
+        if (!empty($url)) {
+          return $url;
+        }
+      }
+      break;
+
+    case 'datetime':
+      // Date fields.
+      return $field->date;
+
+    case 'boolean':
+    case 'integer':
+    case 'decimal':
+    case 'float':
+      return (!empty($field->value) ? $field->value : 0);
+
+    // ... Handle other field types as needed
+    default:
+      // Some custom field types might not fall into the above categories.
+      $values = $field->getValue();
+      return $values;
+  }
+}
+
+/**
+ * Helper function to check if API is disabled.
+ */
+function _sharepoint_connector_get_disabled_api() {
+  $sharepoint_config = \Drupal::config('sharepoint_connector.settings');
+  $connection = $sharepoint_config->get('connection_fieldset', '');
+  return $connection[SharepointConnectorForm::FORM_ID . '_disable_api'] ?? '';
+}

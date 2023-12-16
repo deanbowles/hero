@@ -1,0 +1,17 @@
+sharepoint_connector.settings_tab:
+  route_name: sharepoint_connector.settings
+  title: 'Settings'
+  base_route: sharepoint_connector.settings
+  weight: 0
+
+sharepoint_connector.content_types_tab:
+  route_name: sharepoint_connector.content_types
+  title: 'Content Types'
+  base_route: sharepoint_connector.settings
+  weight: 1
+
+sharepoint_connector.webforms_tab:
+  route_name: sharepoint_connector.webforms
+  title: 'Webforms'
+  base_route: sharepoint_connector.settings
+  weight: 2

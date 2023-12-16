@@ -1,0 +1,12 @@
+# Provides links to the admin configuration page.
+sharepoint_connector.admin_config_sharepoint_connector:
+  title: Sharepoint Connector
+  route_name: sharepoint_connector.settings
+  parent: system.admin_config
+  description: 'Manage Sharepoint Connector.'
+
+sharepoint_connector.settings:
+  title: 'Sharepoint Connector Configuration'
+  parent: sharepoint_connector.admin_config_sharepoint_connector
+  description: 'Configure Sharepoint Connector.'
+  route_name: sharepoint_connector.settings

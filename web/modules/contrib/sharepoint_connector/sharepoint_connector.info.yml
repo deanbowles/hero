@@ -1,0 +1,9 @@
+name: Sharepoint Connector
+description: Adds a customizable connection to Microsoft Sharepoint
+type: module
+core_version_requirement: ^8 || ^9 || ^10
+
+# Information added by Drupal.org packaging script on 2023-10-11
+version: '1.0.1'
+project: 'sharepoint_connector'
+datestamp: 1697037623
